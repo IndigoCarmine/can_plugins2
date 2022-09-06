@@ -1,0 +1,1 @@
+SUBSYSTEM=="tty",ATTRS{idVendor}=="0483",ATTRS{idProduct}=="5740",MODE="660",GROUP="dialout",SYMLINK+="usbcan",ENV{ID_MM_DEVICE_IGNORE}="1"
