@@ -2,6 +2,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <functional>
 
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
@@ -22,7 +23,7 @@ namespace slcan_bridge
                 Close();
             }
          
-            void canTxCallback(const can_plugins2::msg::Frame::SharedPtr &msg);
+            void canTxCallback(const can_plugins2::msg::Frame::SharedPtr &msg)const;
         private:
             void canRxTask(void);
             void processRxFrame(const uint8_t * const str_buf, const uint16_t str_len);
@@ -30,7 +31,7 @@ namespace slcan_bridge
 
             bool waitForStatus(const rcl_duration_t& timeout);
 
-            void send(std::string message);
+            void send(std::string message)const;
 
             void onReceive(const boost::system::error_code& error);
             void receive(void);
@@ -109,7 +110,7 @@ namespace slcan_bridge
     }
 
     try{
-        rclcpp::Parameter baud = this->get_parameter("band");
+        rclcpp::Parameter baud = this->get_parameter("baud");
         _baud = baud.as_int();
     }catch(rclcpp::ParameterTypeException e){
         //parameter is not set or not valid.
@@ -125,7 +126,7 @@ namespace slcan_bridge
 
     this->_write_strand = new boost::asio::io_service::strand(*_service);
   
-    this->can_rx_pub = this->create_publisher<can_plugins2::msg::Frame>("can_rx",1000);
+    this->can_rx_pub = this->create_publisher<can_plugins2::msg::Frame>("can_rx",10);
 
     // 2 threads for read/write
     this->_service_threads.create_thread(boost::bind((std::size_t (boost::asio::io_service::*)())&boost::asio::io_service::run, _service));
@@ -140,7 +141,7 @@ namespace slcan_bridge
 
     Reset();
 
-    this->can_tx_sub = this->create_subscription<can_plugins2::msg::Frame>("can_tx",1000,[this](const can_plugins2::msg::Frame::SharedPtr frame){this->canTxCallback(frame);});
+    this->can_tx_sub = this->create_subscription<can_plugins2::msg::Frame>("can_tx",10,std::bind(&SlcanBridge::canTxCallback,this,_1));
 
     tx_count = 0;
     rx_count = 0;
@@ -186,7 +187,7 @@ namespace slcan_bridge
 
   }
 
-  void SlcanBridge::send(std::string message)
+  void SlcanBridge::send(std::string message)const
   {
     _service->post(_write_strand->wrap(std::bind(&SlcanBridge::queue_message,this,std::move(message))));
   }
@@ -233,7 +234,7 @@ namespace slcan_bridge
     if(!send_packet_queue.empty()){start_packet_send();}
   }
 
-  void SlcanBridge::canTxCallback(const can_plugins2::msg::Frame::SharedPtr &msg)
+  void SlcanBridge::canTxCallback(const can_plugins2::msg::Frame::SharedPtr &msg)const
   {
       if(_error) return;
 
@@ -301,7 +302,7 @@ namespace slcan_bridge
       str_buf[i++] = '\r';
       str_buf[i++] = '\0';
 
-      this->send(str_buf);
+      send(str_buf);
   }
 
   void SlcanBridge::receive(void)
