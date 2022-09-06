@@ -1,16 +1,6 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.8)
 project(can_plugins2)
-
-# Default to C99
-if(NOT CMAKE_C_STANDARD)
-  set(CMAKE_C_STANDARD 99)
-endif()
-
-# Default to C++14
-if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 14)
-endif()
-
+set(CMAKE_CXX_STANDARD 20)
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
@@ -24,36 +14,31 @@ find_package(rosidl_default_generators REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(can_plugins2 REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Frame.msg"
   DEPENDENCIES std_msgs
 )
-ament_export_dependencies(rosidl_default_runtime)
 
 add_executable(slcan_bridge src/slcan_bridge.cpp)
-
-ament_target_dependencies(slcan_bridge 
-  "rclcpp"
-)
+ament_target_dependencies(slcan_bridge rclcpp can_plugins2)
 
 install(TARGETS
   slcan_bridge
   DESTINATION lib/${PROJECT_NAME})
 
-# rosidl_target_interfaces(slcan_bridge
-# ${PROJECT_NAME} "slcanbridge_cpp")
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
-  # uncomment the line when a copyright and license is not present in all source files
-  #set(ament_cmake_copyright_FOUND TRUE)
+  # comment the line when a copyright and license is added to all source files
+  set(ament_cmake_copyright_FOUND TRUE)
   # the following line skips cpplint (only works in a git repo)
-  # uncomment the line when this package is not in a git repo
-  #set(ament_cmake_cpplint_FOUND TRUE)
+  # comment the line when this package is in a git repo and when
+  # a copyright and license is added to all source files
+  set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
-
 
 ament_package()
