@@ -14,6 +14,8 @@ find_package(rclcpp REQUIRED)
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(rclcpp_components REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(can_plugins2 REQUIRED)
@@ -29,9 +31,22 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   DEPENDENCIES std_msgs
 )
 
-add_executable(slcan_bridge src/slcan_bridge.cpp)
-ament_target_dependencies(
-  slcan_bridge rclcpp can_plugins2 diagnostic_updater diagnostic_msgs)
+# add_executable(slcan_bridge src/slcan_bridge.cpp)
+# ament_target_dependencies(
+#   slcan_bridge rclcpp can_plugins2 diagnostic_updater diagnostic_msgs)
+
+
+
+add_library(slcan_bridge SHARED
+  src/slcan_bridge.cpp)
+
+ament_target_dependencies(slcan_bridge
+"rclcpp"
+"rclcpp_components"
+"std_msgs")
+
+rclcpp_components_register_nodes(slcan_bridge "slcan_bridge::SlcanBridge")
+
 
 install(TARGETS
   slcan_bridge
