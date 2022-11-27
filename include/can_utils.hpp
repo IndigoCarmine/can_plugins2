@@ -1,5 +1,5 @@
 #include <boost/array.hpp>
-#include <can_plugins/Frame.h>
+#include <can_plugins2/msg/frame.hpp>
 #define CAN_MTU 8
 template<typename T>
 union _Encapsulator
@@ -33,7 +33,7 @@ static void can_pack(boost::array<uint8_t, CAN_MTU> &buf, const T data)
 }
 
 template<typename T>
-static can_plugins::Frame get_frame(const uint16_t id, const T data)
+static can_plugins2::msg::Frame get_frame(const uint16_t id, const T data)
 {
   can_plugins::Frame frame;
   frame.id = id;
