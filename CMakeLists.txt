@@ -7,6 +7,8 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+# SET(ENV{PYTHONPATH} "/opt/ros/humble/lib/python3.10/site-packages/")
+
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -40,9 +42,10 @@ add_library(slcan_bridge SHARED
   src/slcan_bridge.cpp)
 
 ament_target_dependencies(slcan_bridge
-"rclcpp"
-"rclcpp_components"
-"std_msgs")
+rclcpp
+rclcpp_components
+std_msgs
+can_plugins2)
 
 rclcpp_components_register_nodes(slcan_bridge "slcan_bridge::SlcanBridge")
 
