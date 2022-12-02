@@ -3,62 +3,35 @@
 namespace cobs
 {
     //you should output buffer size is 2 + input buffer size.
-    void encode(const uint8_t input[], uint8_t output[], const uint8_t input_size)
-    {
-        uint8_t code_index = 1;
-        uint8_t code = 1;
-        for (uint8_t i = 0; i < input_size; i++)
-        {
-            if (input[i] == 0)
-            {
-                output[code_index] = 0;
-                code_index = i + code + 1;
-                code = 1;
-            }
-            else
-            {
-                output[code_index] = input[i];
-                code++;
-                if (code == 0xFF)
-                {
-                    output[code_index] = 0;
-                    code_index = i + code + 1;
-                    code = 1;
-                }
+    void encode(const uint8_t data[], uint8_t return_data[], int data_size){
+        int zero_index = data_size + 1;//this is return_data index
+        return_data[zero_index] = 0x00;
+        for(int i = data_size; i >0; i--){
+            if(data[i-1] == 0x00){
+                return_data[i] = (uint8_t)(zero_index - i);
+                zero_index = i;
+            }else{
+                return_data[i] = data[i-1];
             }
         }
-        output[0] = code;
+        return_data[0] = zero_index;
     }
-    
-    //you should output buffer size is input buffer size - 2.
-    void decode(const uint8_t input[], uint8_t output[], const uint8_t input_size)
-    {
-        uint8_t code_index = 1;
-        uint8_t code = input[0];
-        uint8_t i = 0;
-        while (code_index < input_size)
-        {
-            if (code != 0xFF && code_index + code < input_size)
-            {
-                for (uint8_t j = 1; j < code; j++)
-                {
-                    output[i] = input[code_index + j];
-                    i++;
-                }
-                output[i] = 0;
-                i++;
+    //Consistent Overhead Byte Suffiing
+    //data_size is data array size
+    //return data array size should be data_size - 2
+    void decode(const uint8_t data[], uint8_t return_data[], int data_size){
+        uint8_t zero_index = data[0];
+        //i is data index
+        //and lastdata (data_size - 1)-1 is 0x00
+        for(int i = 1; i < data_size - 1; i++){
+            if(i == zero_index){
+                return_data[i-1] = 0x00;
+                zero_index = zero_index + data[i];
+            }else{
+                return_data[i-1] = data[i];
             }
-            else
-            {
-                for (uint8_t j = 1; j < code; j++)
-                {
-                    output[i] = input[code_index + j];
-                    i++;
-                }
-            }
-            code_index = code_index + code + 1;
-            code = input[code_index - 1];
         }
+        return;
     }
 
     
