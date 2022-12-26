@@ -116,20 +116,33 @@ namespace slcan_bridge
         if(!is_active_){
             return;
         }
-        uint8_t data[5+8];
-        data[0] = msg->id;
-        data[1] = msg->is_rtr;
-        data[2] = msg->is_extended;
-        data[3] = msg->is_error;
-        data[4] = msg->dlc;
+
+        // data structure
+        /*
+        uint8_t command : if it is normal can frame, it is 0x00.
+        uint8_t id[4] : can id
+        uint8_t frame_type :  is_rtr << 2 | is_extended << 1 | is_error
+        uint8_t dlc : data length
+        uint8_t data[8] : data
+        */
+
+        uint8_t data[7+8];
+        data[0] = 0x00;
+        data[1] = (msg->id >> 24) & 0xff;
+        data[2] = (msg->id >> 16) & 0xff;
+        data[3] = (msg->id >> 8) & 0xff;
+        data[4] = msg->id & 0xff;
+        data[5] = (msg->is_rtr << 2) | (msg->is_extended << 1) | (msg->is_error);
+        data[6] = msg->dlc;
         for(int i = 0; i < 8; i++){
-            data[5+i] = msg->data[i];
+            data[7+i] = msg->data[i];
         }
 
-        uint8_t output[2+5+8];
-        cobs::encode(data,output,5+8);
 
-        asyncWrite(std::string(output,output+2+5+8));
+        uint8_t output[7+8+2];
+        cobs::encode(data,output,7+8);
+
+        asyncWrite(std::string(output,output+7+8+2));
     }
 
 
