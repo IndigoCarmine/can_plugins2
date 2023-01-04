@@ -2,11 +2,11 @@ can_plugins
 ====
 ## Description
 yskharaさんのUSBCAN基板を採用しつつ、よりよいコードでかけるようにします。通信方式に互換性がありません。
+利用する場合はUSBCANに[usbcan_fw_v2](https://github.com/IndigoCarmine/usbcan_fw_v2)を書き込んで利用してください。
 ### やったこと
 - ros2 Humble Hawksbill
 
-### やりたいこと
-- 
+
 
 
 Attention!!!!!!!!!!
