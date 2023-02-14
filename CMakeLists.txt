@@ -4,7 +4,7 @@ project(can_plugins2)
 set(CMAKE_CXX_STANDARD 17)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic)
+  # add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
 # SET(ENV{PYTHONPATH} "/opt/ros/humble/lib/python3.10/site-packages/")
@@ -16,43 +16,37 @@ find_package(rclcpp REQUIRED)
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
-find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(std_msgs REQUIRED)
-find_package(can_plugins2 REQUIRED)
-find_package(diagnostic_updater REQUIRED)
-find_package(diagnostic_msgs REQUIRED)
 find_package(Boost REQUIRED COMPONENTS thread)
-
-
 include_directories(include ${Boost_INCLUDE_DIRS})
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Frame.msg"
   DEPENDENCIES std_msgs
 )
-
-# add_executable(slcan_bridge src/slcan_bridge.cpp)
-# ament_target_dependencies(
-#   slcan_bridge rclcpp can_plugins2 diagnostic_updater diagnostic_msgs)
-
+ament_export_dependencies(rosidl_default_runtime)
+rosidl_get_typesupport_target(cpp_typesupport_target
+  ${PROJECT_NAME} "rosidl_typesupport_cpp"
+)
 
 
 add_library(slcan_bridge SHARED
   src/slcan_bridge.cpp)
+target_link_libraries(slcan_bridge "${cpp_typesupport_target}")
 
 ament_target_dependencies(slcan_bridge
-rclcpp
-rclcpp_components
-std_msgs
-can_plugins2)
+  rclcpp
+  rclcpp_components
+  std_msgs
+)
+
 
 rclcpp_components_register_nodes(slcan_bridge "slcan_bridge::SlcanBridge")
 
-
 install(TARGETS
   slcan_bridge
-  DESTINATION lib/${PROJECT_NAME})
+  DESTINATION lib)
 
 
 if(BUILD_TESTING)

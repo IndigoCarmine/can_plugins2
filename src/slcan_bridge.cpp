@@ -39,20 +39,26 @@ namespace slcan_bridge
             rclcpp::Publisher<can_plugins2::msg::Frame>::SharedPtr can_rx_pub_;
             rclcpp::Subscription<can_plugins2::msg::Frame>::SharedPtr can_tx_sub_;
 
+
             void canRxCallback(const can_plugins2::msg::Frame::SharedPtr msg);
 
             const int initialize_timeout_ = 1000;//ms
             //port open and setting.
             bool initializeSerialPort(std::string port_name);
 
+
+
             const int handshake_timeout_ = 1000;//ms
             //check the serial deveice is usbcan.
             bool handshake();
 
-            void asyncWrite(std::string data);
 
             // convert message from usbcan, and prosece it.
             void readingProcess(std::string data);
+
+
+            //send data directly
+            void asyncWrite(std::string data);
 
             //you should call this function at once after the connection is established.
             void asyncRead();
@@ -62,7 +68,6 @@ namespace slcan_bridge
             //these function will be called when the data is read from the serial port.
             void readOnceHandler(const boost::system::error_code& error, std::size_t bytes_transferred);
             void readHandler(const boost::system::error_code& error, std::size_t bytes_transferred);
-
 
 
         public:
@@ -83,8 +88,6 @@ namespace slcan_bridge
 
     SlcanBridge::SlcanBridge(const rclcpp::NodeOptions & options):Node("slcan_bridge",options){
         rclcpp::on_shutdown([this](){this->onShutdown();});
-        
-
         can_rx_pub_ = this->create_publisher<can_plugins2::msg::Frame>("can_rx",10);
         can_tx_sub_ = this->create_subscription<can_plugins2::msg::Frame>("can_tx",10,std::bind(&SlcanBridge::canRxCallback,this,_1));
 
@@ -92,7 +95,7 @@ namespace slcan_bridge
 
         //initalize asio members
         io_context_ = std::make_shared<boost::asio::io_context>();
-        serial_port_ = std::make_shared<boost::asio::serial_port>(io_context_->get_executor(),port_name);
+        serial_port_ = std::make_shared<boost::asio::serial_port>(io_context_->get_executor());
         work_guard_ = std::make_unique<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>>(io_context_->get_executor());
 
 
@@ -119,30 +122,28 @@ namespace slcan_bridge
 
         // data structure
         /*
-        uint8_t command : if it is normal can frame, it is 0x00.
+        uint8_t command & frame_type: (command: if it is normal can frame, it is 0x00.)<<4 | is_rtr << 2 | is_extended << 1 | is_error
         uint8_t id[4] : can id
-        uint8_t frame_type :  is_rtr << 2 | is_extended << 1 | is_error
         uint8_t dlc : data length
         uint8_t data[8] : data
         */
 
-        uint8_t data[7+8];
-        data[0] = 0x00;
+        uint8_t data[6+8];
+        data[0] = (msg->is_rtr << 2) | (msg->is_extended << 1) | (msg->is_error);
+        data[6] = msg->dlc;
         data[1] = (msg->id >> 24) & 0xff;
         data[2] = (msg->id >> 16) & 0xff;
         data[3] = (msg->id >> 8) & 0xff;
         data[4] = msg->id & 0xff;
-        data[5] = (msg->is_rtr << 2) | (msg->is_extended << 1) | (msg->is_error);
-        data[6] = msg->dlc;
         for(int i = 0; i < 8; i++){
-            data[7+i] = msg->data[i];
+            data[6+i] = msg->data[i];
         }
 
 
-        uint8_t output[7+8+2];
-        cobs::encode(data,output,7+8);
+        uint8_t output[6+8+2];
+        cobs::encode(data,output,6+8);
 
-        asyncWrite(std::string(output,output+7+8+2));
+        asyncWrite(std::string(output,output+6+8+2));
     }
 
 
@@ -231,6 +232,14 @@ namespace slcan_bridge
             RCLCPP_ERROR(get_logger(),"data size is too small");
             return;
         }
+
+        // data structure
+        /*
+        uint8_t command & frame_type: (command: if it is normal can frame, it is 0x00.)<<4 | is_rtr << 2 | is_extended << 1 | is_error
+        uint8_t id[4] : can id
+        uint8_t dlc : data length
+        uint8_t data[8] : data
+        */
         auto msg = std::make_unique<can_plugins2::msg::Frame>();
         msg->id = cobs_output_buffer_[0];
         msg->is_error = cobs_output_buffer_[1];
