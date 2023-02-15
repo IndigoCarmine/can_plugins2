@@ -40,5 +40,5 @@ rosdep install --from-paths src --ignore-src
 udevファイルをコピーする
 ```
 sudo cp ~/catkin_ws/src/can_plugins/udev/60-usbcan.rules /etc/udev/rules.d/60-usbcan.rules
-sudo udevadm control --reload-rules && udevadm trigger
+sudo udevadm control --reload-rules && sudo udevadm trigger
 ```
