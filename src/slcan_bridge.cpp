@@ -10,29 +10,42 @@
 #include "can_plugins2/msg/frame.hpp"
 using namespace std::chrono_literals;
 using namespace std::placeholders;
+
+
+namespace slcan_command
+{
+    enum Command:uint8_t{
+        Normal=0,
+        Negotiation=1,
+
+    };
+} // namespace slcan_command
+
+
+
 namespace slcan_bridge
 {
 
     class SlcanBridge : public rclcpp::Node{
-
         private:
+            /////////////Slacan Status///////////////////
+            //serial port connected but "HelloSlcan" has not been returned yet.
+            bool is_connected_ = false;
+            //sconection with usbcan is active. the serial port is new usbcan.
+            bool is_active_ = false;
+            /////////////Slacan Status///////////////////
+
+
+
             std::shared_ptr<boost::asio::io_context> io_context_;
             std::shared_ptr<boost::asio::serial_port> serial_port_;
             //it will prohabit the io_context to stop. 
             std::unique_ptr<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>> work_guard_;
 
-
             boost::asio::streambuf read_streambuf_;
-
 
             //thread fot running io_context
             std::thread io_context_thread_; 
-
-            //serial port connected
-            bool is_connected_ = false;
-
-            //sconection with usbcan is active
-            bool is_active_ = false;
 
             std::unique_ptr<std::thread> reading_thread_;
 
@@ -44,7 +57,7 @@ namespace slcan_bridge
 
             const int initialize_timeout_ = 1000;//ms
             //port open and setting.
-            bool initializeSerialPort(std::string port_name);
+            bool initializeSerialPort(const std::string port_name);
 
 
 
@@ -53,12 +66,16 @@ namespace slcan_bridge
             bool handshake();
 
 
-            // convert message from usbcan, and prosece it.
-            void readingProcess(std::string data);
+            // convert message from usbcan, and process it.
+            void readingProcess(const std::string data);
 
 
-            //send data directly
-            void asyncWrite(std::string data);
+            void asyncWrite(const can_plugins2::msg::Frame::SharedPtr msg);
+            void asyncWrite(const slcan_command::Command command,const std::string data);
+
+            //Directly use is deprecated.
+            void asyncWrite(const std::string data);
+            void asyncWrite(const uint8_t data[],int len);
 
             //you should call this function at once after the connection is established.
             void asyncRead();
@@ -119,37 +136,13 @@ namespace slcan_bridge
         if(!is_active_){
             return;
         }
-
-        // data structure
-        /*
-        uint8_t command & frame_type: (command: if it is normal can frame, it is 0x00.)<<4 | is_rtr << 2 | is_extended << 1 | is_error
-        uint8_t id[4] : can id
-        uint8_t dlc : data length
-        uint8_t data[8] : data
-        */
-
-        uint8_t data[6+8];
-        data[0] = (msg->is_rtr << 2) | (msg->is_extended << 1) | (msg->is_error);
-        data[6] = msg->dlc;
-        data[1] = (msg->id >> 24) & 0xff;
-        data[2] = (msg->id >> 16) & 0xff;
-        data[3] = (msg->id >> 8) & 0xff;
-        data[4] = msg->id & 0xff;
-        for(int i = 0; i < 8; i++){
-            data[6+i] = msg->data[i];
-        }
-
-
-        uint8_t output[6+8+2];
-        cobs::encode(data,output,6+8);
-
-        asyncWrite(std::string(output,output+6+8+2));
+        asyncWrite(msg);
     }
 
 
 
     //port open and setting. 
-    bool SlcanBridge::initializeSerialPort(std::string port_name){
+    bool SlcanBridge::initializeSerialPort(const std::string port_name){
         rclcpp::WallRate rate(1s);
         while(true){
             try{
@@ -185,16 +178,68 @@ namespace slcan_bridge
 
 
 
-    void SlcanBridge::asyncWrite(std::string data){
+    void SlcanBridge::asyncWrite(const std::string data){
         io_context_->post([this,data](){
             boost::asio::async_write(*serial_port_,boost::asio::buffer(data),
             boost::bind(&SlcanBridge::readHandler,this,boost::asio::placeholders::error,boost::asio::placeholders::bytes_transferred));
         });
         return;
     }
+    void SlcanBridge::asyncWrite(const uint8_t data[],int len){
+        io_context_->post([this,data,len](){
+            boost::asio::async_write(*serial_port_,boost::asio::buffer(data,len),
+            boost::bind(&SlcanBridge::readHandler,this,boost::asio::placeholders::error,boost::asio::placeholders::bytes_transferred));
+        });
+        return;
+    }
 
 
-    void SlcanBridge::readingProcess(std::string data){
+    void SlcanBridge::asyncWrite(const can_plugins2::msg::Frame::SharedPtr msg){
+        // data structure
+        /*
+        uint8_t command & frame_type: (command: if it is normal can frame, it is 0x00.)<<4 | is_rtr << 2 | is_extended << 1 | is_error
+        uint8_t id[4] : can id
+        uint8_t dlc : data length
+        uint8_t data[8] : data
+        */
+        uint8_t data[6+8];
+        data[0] = (msg->is_rtr << 2) | (msg->is_extended << 1) | (msg->is_error);
+        data[6] = msg->dlc;
+        data[1] = (msg->id >> 24) & 0xff;
+        data[2] = (msg->id >> 16) & 0xff;
+        data[3] = (msg->id >> 8) & 0xff;
+        data[4] = msg->id & 0xff;
+        for(int i = 0; i < 8; i++){
+            data[6+i] = msg->data[i];
+        }
+        uint8_t output[6+8+2];
+        cobs::encode(data,output,6+8);
+        asyncWrite(std::string(output,output+6+8+2));
+    }
+
+    void SlcanBridge::asyncWrite(const slcan_command::Command command,const std::string data){
+        if(command == slcan_command::Normal)
+            RCLCPP_ERROR(get_logger(),"asyncWrite(Command) can not use normal. you need to use asyncWrite(Frame)");
+
+        // data structure
+        /*
+        uint8_t command & frame_type: (command: if it is normal can frame, it is 0x00.)<<4 | is_rtr << 2 | is_extended << 1 | is_error
+        uint8_t id[4] : data
+        */
+        uint8_t raw_data[100];
+        raw_data[0]= command<<4;
+        int counter = 1;
+        for(char a : data){
+            raw_data[counter] = static_cast<uint8_t>(a);
+            counter++;
+        }
+        uint8_t output[101];
+        cobs::encode(raw_data,output,data.length()+1+2);
+        asyncWrite(std::string(output,output+data.length()+1+2));
+    }
+
+
+    void SlcanBridge::readingProcess(const std::string data){
         RCLCPP_INFO(get_logger(),"readingProcess");
 
         static uint8_t cobs_input_buffer_[128];
@@ -207,8 +252,8 @@ namespace slcan_bridge
         cobs::decode(cobs_input_buffer_,cobs_output_buffer_,data.size()+1);
 
         //check it is handshake. USBCAN will send "HelloSlcan" when the connection is established.
-        static const uint8_t HelloSlcan[] ={'H','e','l','l','o','S','l','c','a','n'};
-        if(data.size()==10+1){
+        static const uint8_t HelloSlcan[] ={slcan_command::Negotiation<<4, 'H','e','l','l','o','S','l','c','a','n'};
+        if(data.size()==11+1){
             bool is_handshake = true;
             for(int i = 0; i < 10; i++){
                 if(cobs_output_buffer_[i] != HelloSlcan[i]){
@@ -241,10 +286,11 @@ namespace slcan_bridge
         uint8_t data[8] : data
         */
         auto msg = std::make_unique<can_plugins2::msg::Frame>();
-        msg->id = cobs_output_buffer_[0];
-        msg->is_error = cobs_output_buffer_[1];
-        msg->is_extended = cobs_output_buffer_[2];
-        msg->dlc = cobs_output_buffer_[3];
+        msg->is_error = cobs_output_buffer_[0]&0x1;
+        msg->is_extended = cobs_output_buffer_[0]>>1&0x1;
+        msg->is_rtr = cobs_output_buffer_[0]>>2&0x1;
+        msg->id = cobs_output_buffer_[1]<<12|cobs_output_buffer_[2]<<8|cobs_output_buffer_[3]<<4|cobs_output_buffer_[4];
+        msg->dlc = cobs_output_buffer_[5];
         for(int i = 0; i < 8; i++){
             msg->data[i] = cobs_output_buffer_[4+i];
         }
@@ -257,7 +303,7 @@ namespace slcan_bridge
     bool SlcanBridge::handshake(){
         rclcpp::WallRate rate(1s);
         while(!is_active_){
-            asyncWrite("HelloUSBCAN");
+            asyncWrite(slcan_command::Negotiation,"HelloUSBCAN");
             rate.sleep();
         }
         return true;
