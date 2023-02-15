@@ -1,6 +1,6 @@
 #include <rclcpp/rclcpp.hpp>
 #include <boost/asio.hpp>
-#include <string>
+#include <array>
 #include <boost/array.hpp>
 #include <boost/bind/bind.hpp>
 #include <chrono>
@@ -67,15 +67,16 @@ namespace slcan_bridge
 
 
             // convert message from usbcan, and process it.
-            void readingProcess(const std::string data);
+            template<std::size_t N>
+            void readingProcess(const std::array<uint8_t,N> data);
 
 
             void asyncWrite(const can_plugins2::msg::Frame::SharedPtr msg);
             void asyncWrite(const slcan_command::Command command,const std::string data);
 
             //Directly use is deprecated.
-            void asyncWrite(const std::string data);
-            void asyncWrite(const uint8_t data[],int len);
+            template<std::size_t N>
+            void asyncWrite(const std::array<uint8_t,N> data);
 
             //you should call this function at once after the connection is established.
             void asyncRead();
@@ -127,7 +128,7 @@ namespace slcan_bridge
         bool i =  initializeSerialPort(port_name);
         if(i){
             asyncRead();
-
+            handshake();
         }
         
     }
@@ -177,22 +178,14 @@ namespace slcan_bridge
     }
 
 
-
-    void SlcanBridge::asyncWrite(const std::string data){
+    template<std::size_t N>
+    void SlcanBridge::asyncWrite(const std::array<uint8_t,N> data){
         io_context_->post([this,data](){
             boost::asio::async_write(*serial_port_,boost::asio::buffer(data),
             boost::bind(&SlcanBridge::readHandler,this,boost::asio::placeholders::error,boost::asio::placeholders::bytes_transferred));
         });
         return;
     }
-    void SlcanBridge::asyncWrite(const uint8_t data[],int len){
-        io_context_->post([this,data,len](){
-            boost::asio::async_write(*serial_port_,boost::asio::buffer(data,len),
-            boost::bind(&SlcanBridge::readHandler,this,boost::asio::placeholders::error,boost::asio::placeholders::bytes_transferred));
-        });
-        return;
-    }
-
 
     void SlcanBridge::asyncWrite(const can_plugins2::msg::Frame::SharedPtr msg){
         // data structure
@@ -202,7 +195,7 @@ namespace slcan_bridge
         uint8_t dlc : data length
         uint8_t data[8] : data
         */
-        uint8_t data[6+8];
+        std::array<uint8_t,6+8> data;
         data[0] = (msg->is_rtr << 2) | (msg->is_extended << 1) | (msg->is_error);
         data[6] = msg->dlc;
         data[1] = (msg->id >> 24) & 0xff;
@@ -212,12 +205,13 @@ namespace slcan_bridge
         for(int i = 0; i < 8; i++){
             data[6+i] = msg->data[i];
         }
-        uint8_t output[6+8+2];
-        cobs::encode(data,output,6+8);
-        asyncWrite(std::string(output,output+6+8+2));
+        std::array<uint8_t,6+8+2> output = cobs::encode(data);
+         
+        asyncWrite(output);
     }
 
-    void SlcanBridge::asyncWrite(const slcan_command::Command command,const std::string data){
+    template<std::size_t N>
+    void SlcanBridge::asyncWrite(const slcan_command::Command command,const std::array<uint8_t,N> data){
         if(command == slcan_command::Normal)
             RCLCPP_ERROR(get_logger(),"asyncWrite(Command) can not use normal. you need to use asyncWrite(Frame)");
 
@@ -226,30 +220,21 @@ namespace slcan_bridge
         uint8_t command & frame_type: (command: if it is normal can frame, it is 0x00.)<<4 | is_rtr << 2 | is_extended << 1 | is_error
         uint8_t id[4] : data
         */
-        uint8_t raw_data[100];
-        raw_data[0]= command<<4;
-        int counter = 1;
-        for(char a : data){
-            raw_data[counter] = static_cast<uint8_t>(a);
-            counter++;
+        std::array<uint8_t,1+N> raw_data;
+        raw_data[0] = (command << 4);
+        for(int i = 0; i < N; i++){
+            raw_data[1+i] = data[i];
         }
-        uint8_t output[101];
-        cobs::encode(raw_data,output,data.length()+1+2);
-        asyncWrite(std::string(output,output+data.length()+1+2));
+        std::array<uint8_t,N+3> output = cobs::encode(raw_data);
+        asyncWrite(output);
     }
 
-
-    void SlcanBridge::readingProcess(const std::string data){
+    template<std::size_t N>
+    void SlcanBridge::readingProcess(const std::array<uint8_t,N> data){
         RCLCPP_INFO(get_logger(),"readingProcess");
 
-        static uint8_t cobs_input_buffer_[128];
-        static uint8_t cobs_output_buffer_[128];
-        for(uint8_t i = 0;i<128 && i < data.size(); i++){
-            cobs_input_buffer_[i] = data[i];
-        }
-        cobs_input_buffer_[data.size()] = 0;//the data lost the last byte. so, we add 1.
-
-        cobs::decode(cobs_input_buffer_,cobs_output_buffer_,data.size()+1);
+        
+        std::array<uint8_t,N-2> cobs_output_buffer_ =  cobs::decode(data);
 
         //check it is handshake. USBCAN will send "HelloSlcan" when the connection is established.
         static const uint8_t HelloSlcan[] ={slcan_command::Negotiation<<4, 'H','e','l','l','o','S','l','c','a','n'};
