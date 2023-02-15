@@ -4,7 +4,7 @@ project(can_plugins2)
 set(CMAKE_CXX_STANDARD 17)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  # add_compile_options(-Wall -Wextra -Wpedantic)
+  add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
 # SET(ENV{PYTHONPATH} "/opt/ros/humble/lib/python3.10/site-packages/")

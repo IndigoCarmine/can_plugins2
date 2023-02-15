@@ -12,10 +12,10 @@ namespace test
 
         for(int i=0;i<len;i++){
             if(data[i]>='!'&&data[i] <= '~')text.push_back(static_cast<char>(data[i]));
-            hex<<std::hex<<data[i];
+            hex<<std::dec<<data[i];
         }
         std::string hex_str = hex.str();
-        return hex_str + text;
+        return  text;
     }
 
     template <std::size_t N>
@@ -24,3 +24,4 @@ namespace test
     }
     
 } // namespace test
+
