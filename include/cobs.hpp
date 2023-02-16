@@ -1,9 +1,10 @@
 #include <cstdint>
+#include <vector>
 
 namespace cobs
 {
     //you should output buffer size is 2 + input buffer size.
-    void encode(const uint8_t data[], uint8_t return_data[], int data_size){
+    void encode(const uint8_t data[], uint8_t return_data[],std::size_t data_size){
         int zero_index = data_size + 1;//this is return_data index
         return_data[zero_index] = 0x00;
         for(int i = data_size; i >0; i--){
@@ -16,6 +17,13 @@ namespace cobs
         }
         return_data[0] = zero_index;
     }
+
+    std::vector<uint8_t> encode(const std::vector<uint8_t> data){
+        std::vector<uint8_t> return_data(data.size() + 2);
+        encode(data.data(), return_data.data(), data.size());
+        return return_data;
+    }
+
 
     //Consistent Overhead Byte Suffiing
     //data_size is data array size
@@ -34,6 +42,12 @@ namespace cobs
         }
         return;
     }
+
+    std::vector<uint8_t> decode(const std::vector<uint8_t> data){
+        std::vector<uint8_t> return_data(data.size() - 2);
+        decode(data.data(), return_data.data(), data.size());
+        return return_data;
+    }   
 } // namespace cobs
 
 

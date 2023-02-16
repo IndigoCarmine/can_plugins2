@@ -2,6 +2,7 @@
 #include <string>
 #include <sstream>
 #include <array>
+#include <vector>
 
 namespace test
 {   
@@ -20,6 +21,10 @@ namespace test
 
     template <std::size_t N>
     std::string hex_to_string(std::array<uint8_t,N> data){
+        return hex_to_string(data.data(),data.size());
+    }
+
+    std::string hex_to_string(std::vector<uint8_t> data){
         return hex_to_string(data.data(),data.size());
     }
     

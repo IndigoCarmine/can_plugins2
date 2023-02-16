@@ -4,6 +4,7 @@
 #include <boost/bind/bind.hpp>
 #include <chrono>
 #include <future>
+#include <vector>
 #include "cobs.hpp"
 #include "test.hpp"
 
@@ -67,14 +68,14 @@ namespace slcan_bridge
 
 
             // convert message from usbcan, and process it.
-            void readingProcess(const uint8_t data[],const std::size_t len);
+            void readingProcess(const std::vector<uint8_t> data);
 
 
             void asyncWrite(const can_plugins2::msg::Frame::SharedPtr msg);
-            void asyncWrite(const slcan_command::Command command,const uint8_t data[],const std::size_t len);
+            void asyncWrite(const slcan_command::Command command,const std::vector<uint8_t> data);
 
             //Directly use is deprecated.
-            void asyncWrite(const uint8_t data[],const std::size_t len);
+            void asyncWrite(const std::vector<uint8_t> data);
 
             //you should call this function at once after the connection is established.
             void asyncRead();
@@ -84,6 +85,9 @@ namespace slcan_bridge
             //these function will be called when the data is read from the serial port.
             void readOnceHandler(const boost::system::error_code& error, std::size_t bytes_transferred);
             void readHandler(const boost::system::error_code& error, std::size_t bytes_transferred);
+
+            //these function will be called when the data is written to the serial port. for error handling.
+            void writeHandler(const boost::system::error_code& error, std::size_t bytes_transferred);
 
 
         public:
@@ -175,10 +179,11 @@ namespace slcan_bridge
         return true;
     }
 
-    void SlcanBridge::asyncWrite(const uint8_t data[],const std::size_t len){
-        io_context_->post([this,data,len](){
-            boost::asio::async_write(*serial_port_,boost::asio::buffer(data,len),
-            boost::bind(&SlcanBridge::readHandler,this,boost::asio::placeholders::error,boost::asio::placeholders::bytes_transferred));
+
+    void SlcanBridge::asyncWrite(const std::vector<uint8_t> data){
+        io_context_->post([this,data](){
+            boost::asio::async_write(*serial_port_,boost::asio::buffer(data),
+            boost::bind(&SlcanBridge::writeHandler,this,boost::asio::placeholders::error,boost::asio::placeholders::bytes_transferred));
         });
         return;
     }
@@ -191,7 +196,7 @@ namespace slcan_bridge
         uint8_t dlc : data length
         uint8_t data[8] : data
         */
-        uint8_t data[6+8];
+        std::vector<uint8_t> data(6+8);
         data[0] = (msg->is_rtr << 2) | (msg->is_extended << 1) | (msg->is_error);
         data[6] = msg->dlc;
         data[1] = (msg->id >> 24) & 0xff;
@@ -202,13 +207,12 @@ namespace slcan_bridge
             data[6+i] = msg->data[i];
         }
         
-        uint8_t output[6+8+2];
-        cobs::encode(data,output,6+8);
+        std::vector<uint8_t> output = cobs::encode(data);
          
-        asyncWrite(output,6+8+2);
+        asyncWrite(output);
     }
 
-    void SlcanBridge::asyncWrite(const slcan_command::Command command,const uint8_t data[],const std::size_t len){
+    void SlcanBridge::asyncWrite(const slcan_command::Command command,const std::vector<uint8_t> data){
         if(command == slcan_command::Normal)
             RCLCPP_ERROR(get_logger(),"asyncWrite(Command) can not use normal. you need to use asyncWrite(Frame)");
 
@@ -217,28 +221,25 @@ namespace slcan_bridge
         uint8_t command & frame_type: (command: if it is normal can frame, it is 0x00.)<<4 | is_rtr << 2 | is_extended << 1 | is_error
         uint8_t id[4] : data
         */
-        uint8_t raw_data[64];
+        std::vector<uint8_t> raw_data(1+data.size());
         raw_data[0] = (command << 4);
-        for(int i = 0; i < len; i++){
+        for(std::size_t i = 0; i < data.size(); i++){
             raw_data[1+i] = data[i];
         }
-
-        uint8_t output[64];
-        cobs::encode(raw_data,output,1+len);
+        std::vector<uint8_t> output = cobs::encode(raw_data);
         
-        asyncWrite(output,1+len+2);
+        asyncWrite(output);
     }
 
 
-    void SlcanBridge::readingProcess(const uint8_t data[],const std::size_t len){
-        uint8_t cobs_output_buffer_[64];
-        cobs::decode(data,cobs_output_buffer_,len);
+    void SlcanBridge::readingProcess(const std::vector<uint8_t> data){
+        std::vector<uint8_t> cobs_output_buffer_ = cobs::decode(data);
 
-        RCLCPP_INFO(get_logger(),"readingProcess %s",test::hex_to_string(cobs_output_buffer_,len-2).c_str());
+        RCLCPP_INFO(get_logger(),"readingProcess %s",test::hex_to_string(cobs_output_buffer_).c_str());
 
         //check it is handshake. USBCAN will send "HelloSlcan" when the connection is established.
         static const uint8_t HelloSlcan[] ={slcan_command::Negotiation<<4, 'H','e','l','l','o','S','l','c','a','n'};
-        if(len==11+1){
+        if(data.size()==11+1){
             bool is_handshake = true;
             for(int i = 0; i < 10; i++){
                 if(cobs_output_buffer_[i] != HelloSlcan[i]){
@@ -258,7 +259,7 @@ namespace slcan_bridge
 
 
         //publish the data to the topic.
-        if(len<12){
+        if(data.size()<12){
             RCLCPP_ERROR(get_logger(),"data size is too small");
             return;
         }
@@ -288,8 +289,8 @@ namespace slcan_bridge
     bool SlcanBridge::handshake(){
         rclcpp::WallRate rate(1s);
         while(!is_active_){
-            constexpr uint8_t HelloUSBCAN[] = {'H','e','l','l','o','U','S','B','C','A','N'};
-            asyncWrite(slcan_command::Negotiation,HelloUSBCAN,11);
+            const std::vector<uint8_t> HelloUSBCAN = {'H','e','l','l','o','U','S','B','C','A','N'};
+            asyncWrite(slcan_command::Negotiation,HelloUSBCAN);
             rate.sleep();
         }
         return true;
@@ -302,13 +303,16 @@ namespace slcan_bridge
             return;
         }
 
-        uint8_t data[64];
-        uint8_t *data_ptr = (uint8_t*)(boost::asio::buffer_cast<const char*>(read_streambuf_.data()));
-        for(int i;i<bytes_transferred;i++){
+        std::vector<uint8_t> data(bytes_transferred);
+
+        //it can use iostream but
+        uint8_t* data_ptr = (uint8_t*)boost::asio::buffer_cast<const char*>(read_streambuf_.data());
+        for(std::size_t i = 0; i < bytes_transferred; i++){
             data[i] = data_ptr[i];
         }
 
-        SlcanBridge::readingProcess(data,bytes_transferred);
+
+        SlcanBridge::readingProcess(data);
         
         // RCLCPP_INFO(get_logger(),"readOnceHandler %s",test::hex_to_string(data,bytes_transferred).c_str());
         read_streambuf_.consume(bytes_transferred);
@@ -329,6 +333,36 @@ namespace slcan_bridge
             boost::bind(&SlcanBridge::readOnceHandler,this,boost::asio::placeholders::error,boost::asio::placeholders::bytes_transferred));
 
         return;
+    }
+
+    void SlcanBridge::writeHandler(const boost::system::error_code& error, std::size_t bytes_transferred){
+        if(error){
+            RCLCPP_ERROR(get_logger(),"writeHandler error: tried to write %ld byte",bytes_transferred);
+            
+            //the followings are generated by copilot.
+            //TODO:CHECK IT!
+            switch (error.value())
+            {
+            case boost::system::errc::no_such_device_or_address:
+                RCLCPP_ERROR(get_logger(),"no_such_device_or_address");
+                break;
+            case boost::system::errc::no_such_file_or_directory:
+                RCLCPP_ERROR(get_logger(),"no_such_file_or_directory");
+                break;
+            case boost::system::errc::permission_denied:
+                RCLCPP_ERROR(get_logger(),"permission_denied");
+                break;
+            case boost::system::errc::bad_file_descriptor:
+                RCLCPP_ERROR(get_logger(),"bad_file_descriptor");
+                break;
+            case boost::system::errc::resource_unavailable_try_again:
+                RCLCPP_ERROR(get_logger(),"resource_unavailable_try_again");
+                break;
+            default:
+                RCLCPP_ERROR(get_logger(),"unknown error");
+                break;
+            }
+        }
     }
 
     //write data to the serial port. it calls asyncRead() after reading.
