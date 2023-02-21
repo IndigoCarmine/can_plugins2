@@ -291,6 +291,7 @@ namespace slcan_bridge
         while(!is_active_){
             const std::vector<uint8_t> HelloUSBCAN = {'H','e','l','l','o','U','S','B','C','A','N'};
             asyncWrite(slcan_command::Negotiation,HelloUSBCAN);
+            RCLCPP_INFO(get_logger(),"Waitting for negotiation...");
             rate.sleep();
         }
         return true;
