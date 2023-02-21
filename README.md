@@ -2,11 +2,7 @@ can_plugins
 ====
 ## Description
 yskharaさんのUSBCAN基板を採用しつつ、よりよいコードでかけるようにします。通信方式に互換性がありません。
-### やったこと
-- ros2 Humble Hawksbill
-
-### やりたいこと
-- 
+ros2 Humble Hawksbillで動作します。
 
 
 Attention!!!!!!!!!!
