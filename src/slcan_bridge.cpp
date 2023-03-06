@@ -111,7 +111,7 @@ namespace slcan_bridge
         can_rx_pub_ = this->create_publisher<can_plugins2::msg::Frame>("can_rx",10);
         can_tx_sub_ = this->create_subscription<can_plugins2::msg::Frame>("can_tx",10,std::bind(&SlcanBridge::canRxCallback,this,_1));
 
-        std::string port_name = "/dev/serial/by-id/usb-STMicroelectronics_STM32_Virtual_ComPort_2050365A4734-if00";
+        std::string port_name = "/dev/usbcan2";
 
         //initalize asio members
         io_context_ = std::make_shared<boost::asio::io_context>();
@@ -238,8 +238,8 @@ namespace slcan_bridge
         RCLCPP_INFO(get_logger(),"readingProcess %s",test::hex_to_string(cobs_output_buffer_).c_str());
 
         //check it is handshake. USBCAN will send "HelloSlcan" when the connection is established.
-        static const uint8_t HelloSlcan[] ={slcan_command::Negotiation<<4, 'H','e','l','l','o','S','l','c','a','n'};
-        if(data.size()==11+1){
+        static const uint8_t HelloSlcan[] ={slcan_command::Negotiation<<4, 'H','e','l','l','o','S','L','C','A','N'};
+        if(cobs_output_buffer_.size()==10+1){
             bool is_handshake = true;
             for(int i = 0; i < 10; i++){
                 if(cobs_output_buffer_[i] != HelloSlcan[i]){
@@ -248,7 +248,7 @@ namespace slcan_bridge
                 }
             }
             if(is_handshake){
-                RCLCPP_INFO(get_logger(),"handshake");
+                RCLCPP_INFO(get_logger(),"negotiation success");
                 is_active_ = true;
                 return;
             }

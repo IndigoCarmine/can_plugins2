@@ -13,10 +13,10 @@ namespace test
 
         for(int i=0;i<len;i++){
             if(data[i]>='!'&&data[i] <= '~')text.push_back(static_cast<char>(data[i]));
-            hex<<std::dec<<data[i];
+            hex<<std::hex<<(int16_t)data[i];
         }
         std::string hex_str = hex.str();
-        return  text;
+        return  text + hex_str;
     }
 
     template <std::size_t N>
