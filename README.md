@@ -1,8 +1,10 @@
-can_plugins 
+can_plugins2
 ====
 ## Description
-yskharaさんのUSBCAN基板を採用しつつ、よりよいコードでかけるようにします。通信方式に互換性がありません。
-ros2 Humble Hawksbillで動作します。
+It is for ysk's USBCAN board, is incompatible with the old version.
+It works on ros2 Humble Hawksbill.
+can_plugins2 is for new version of usbcan_fw. It is not compatible with old version.
+So, you should change new udev rule. See Install section.
 
 
 Attention!!!!!!!!!!
@@ -27,13 +29,7 @@ The following is the can_plugins content
 ```
 
 ## Install
-依存ファイルのダウンロード
-```
-cd ~/catkin_ws
-rosdep install --from-paths src --ignore-src
-```
-
-udevファイルをコピーする
+copy udev rule
 ```
 sudo cp ~/catkin_ws/src/can_plugins/udev/60-usbcan.rules /etc/udev/rules.d/60-usbcan.rules
 sudo udevadm control --reload-rules && sudo udevadm trigger
