@@ -31,6 +31,7 @@ rosidl_get_typesupport_target(cpp_typesupport_target
 )
 
 
+
 add_library(slcan_bridge SHARED
   src/slcan_bridge.cpp)
 target_link_libraries(slcan_bridge "${cpp_typesupport_target}")
@@ -41,12 +42,21 @@ ament_target_dependencies(slcan_bridge
   std_msgs
 )
 
-
 rclcpp_components_register_nodes(slcan_bridge "slcan_bridge::SlcanBridge")
+
+install(
+  DIRECTORY include/
+  DESTINATION include
+)
+ament_export_include_directories(include)
 
 install(TARGETS
   slcan_bridge
-  DESTINATION lib)
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib
+  RUNTIME DESTINATION bin
+  INCLUDES DESTINATION include
+)
 
 
 if(BUILD_TESTING)
