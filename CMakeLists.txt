@@ -19,8 +19,7 @@ find_package(rosidl_default_generators REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(Boost REQUIRED COMPONENTS thread)
-include_directories(include SHARED
-${Boost_INCLUDE_DIRS})
+include_directories(include ${Boost_INCLUDE_DIRS})
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Frame.msg"
