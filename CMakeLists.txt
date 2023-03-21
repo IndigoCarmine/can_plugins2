@@ -25,16 +25,27 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Frame.msg"
   DEPENDENCIES std_msgs
 )
-ament_export_dependencies(rosidl_default_runtime)
-rosidl_get_typesupport_target(cpp_typesupport_target
-  ${PROJECT_NAME} "rosidl_typesupport_cpp"
-)
 
+# check if ROS_DISTRO is foxy or humble
+if($ENV{ROS_DISTRO} STREQUAL "humble")
+  ament_export_dependencies(rosidl_default_runtime)
+  rosidl_get_typesupport_target(cpp_typesupport_target
+    ${PROJECT_NAME} "rosidl_typesupport_cpp"
+  )
+endif()
 
 
 add_library(slcan_bridge SHARED
   src/slcan_bridge.cpp)
-target_link_libraries(slcan_bridge "${cpp_typesupport_target}")
+
+# check if ROS_DISTRO is foxy or humbles
+if($ENV{ROS_DISTRO} STREQUAL "humble")
+  target_link_libraries(slcan_bridge "${cpp_typesupport_target}")
+elseif($ENV{ROS_DISTRO} STREQUAL "foxy")
+  rosidl_target_interfaces(slcan_bridge
+    ${PROJECT_NAME} "rosidl_typesupport_cpp")
+endif()
+
 
 ament_target_dependencies(slcan_bridge
   rclcpp
