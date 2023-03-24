@@ -1,0 +1,8 @@
+<launch>
+    <node pkg="rclcpp_components" exec="component_container" name="bufferd_slcan_bridge">
+    </node>
+    <load_composable_node target="bufferd_slcan_bridge">
+        <composable_node pkg="can_plugins2" plugin="bufferd_slcan_bridge::BufferdSlcanBridge" name="bufferd_slcan_bridge">
+        </composable_node>
+    </load_composable_node>
+</launch>
