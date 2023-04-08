@@ -1,3 +1,5 @@
+/// @todo statusの読み出しと書き込みについて、atomicに行われることを保証すべき
+
 #include <array>
 #include <functional>
 
