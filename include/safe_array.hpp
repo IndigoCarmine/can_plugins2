@@ -1,4 +1,4 @@
-/// @todo statusの読み出しと書き込みについて、atomicに行われることを保証すべき
+#pragma once
 
 #include <array>
 #include <atomic>
