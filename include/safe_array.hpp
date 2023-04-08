@@ -1,7 +1,6 @@
 /// @todo statusの読み出しと書き込みについて、atomicに行われることを保証すべき
 
 #include <array>
-#include <functional>
 
 namespace safe_array
 {
@@ -23,11 +22,8 @@ namespace safe_array
         };
 
         std::array<Item, count> m_array;
-        // if compare is true, then first element is bigger than second
-        std::function<bool(const T &, const T &)> compare;
 
     public:
-        SafeArray(std::function<bool(const Item<T> &, const Item<T> &)> compare) : compare(compare) {}
         // this function is not used from multiple threads
         bool add(const T &value)
         {
@@ -58,4 +54,4 @@ namespace safe_array
             return false;
         }
     };
-} // namespace safe_list
+}
