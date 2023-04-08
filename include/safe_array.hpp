@@ -1,6 +1,8 @@
 /// @todo statusの読み出しと書き込みについて、atomicに行われることを保証すべき
 
 #include <array>
+#include <atomic>
+#include <utility>
 
 namespace safe_array
 {
@@ -13,41 +15,36 @@ namespace safe_array
         struct Item
         {
             T value;
-            uint8_t status;
-        };
-        enum class Status : uint8_t
-        {
-            Empty = 0,
-            Used = 1,
+            std::atomic<bool> has_element{false};
         };
 
         std::array<Item, count> m_array;
 
     public:
-        // this function is not used from multiple threads
+        // you MUST NOT call this concurrently.
         bool add(const T &value)
         {
             for (auto &item : m_array)
             {
-                if (item.status == static_cast<uint8_t>(Status::Empty))
+                if (!item.has_element)
                 {
-                    item.value = T(value);
-                    item.status = static_cast<uint8_t>(Status::Used);
+                    item.value = value;
+                    item.has_element = true;
                     return true;
                 }
             }
             return false;
         }
 
-        // this function is not used from multiple threads
+        // you MUST NOT call this concurrently.
         bool pop(T &value)
         {
             for (auto &item : m_array)
             {
-                if (item.status == static_cast<uint8_t>(Status::Used))
+                if (item.has_element)
                 {
-                    value = T(item.value);
-                    item.status = static_cast<uint8_t>(Status::Empty);
+                    value = std::move(item.value);
+                    item.has_element = false;
                     return true;
                 }
             }
