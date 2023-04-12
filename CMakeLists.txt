@@ -4,7 +4,7 @@ project(can_plugins2)
 set(CMAKE_CXX_STANDARD 17)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic)
+  add_compile_options(-Wall -Wextra -pedantic-errors -fstrict-aliasing)
 endif()
 
 # SET(ENV{PYTHONPATH} "/opt/ros/humble/lib/python3.10/site-packages/")
@@ -18,7 +18,10 @@ find_package(rclcpp REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(std_msgs REQUIRED)
-find_package(Boost REQUIRED COMPONENTS thread)
+find_package(Boost REQUIRED COMPONENTS thread)  # Stew add
+
+ament_export_dependencies(rosidl_default_runtime)
+
 include_directories(include ${Boost_INCLUDE_DIRS})
 
 rosidl_generate_interfaces(${PROJECT_NAME}
