@@ -1,10 +1,14 @@
-#include <rclcpp/rclcpp.hpp>
-#include <boost/asio.hpp>
-#include <boost/array.hpp>
-#include <boost/bind/bind.hpp>
+#include <stdint.h>
 #include <chrono>
 #include <future>
 #include <vector>
+
+#include <boost/asio.hpp>
+#include <boost/array.hpp>
+#include <boost/bind/bind.hpp>
+
+#include <rclcpp/rclcpp.hpp>
+
 #include "cobs.hpp"
 #include "test.hpp"
 
@@ -155,7 +159,7 @@ namespace slcan_bridge
                 serial_port_->set_option(boost::asio::serial_port_base::parity(boost::asio::serial_port_base::parity::none));
                 serial_port_->set_option(boost::asio::serial_port_base::stop_bits(boost::asio::serial_port_base::stop_bits::one));
                 serial_port_->set_option(boost::asio::serial_port_base::baud_rate(115200));
-            }catch(boost::system::system_error e){
+            }catch(boost::system::system_error& e){
                 switch (e.code().value()){
                     case 2:
                         RCLCPP_ERROR(get_logger(),"Cannot connect. No such file or directory");
