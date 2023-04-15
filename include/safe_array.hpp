@@ -1,5 +1,8 @@
+#pragma once
+
 #include <array>
 #include <functional>
+#include <atomic>
 
 namespace safe_array
 {
@@ -12,7 +15,7 @@ namespace safe_array
         struct Item
         {
             T value;
-            uint8_t status;
+            std::atomic<uint8_t> status;
         };
         enum class Status : uint8_t
         {
@@ -46,9 +49,10 @@ namespace safe_array
         {
             for (auto &item : m_array)
             {
+
                 if (item.status == static_cast<uint8_t>(Status::Used))
                 {
-                    value = T(item.value);
+                    value = item.value;
                     item.status = static_cast<uint8_t>(Status::Empty);
                     return true;
                 }
