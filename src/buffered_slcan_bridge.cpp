@@ -183,7 +183,7 @@ namespace buffered_slcan_bridge
                 serial_port_->set_option(boost::asio::serial_port_base::stop_bits(boost::asio::serial_port_base::stop_bits::one));
                 serial_port_->set_option(boost::asio::serial_port_base::baud_rate(115200));
             }
-            catch (boost::system::system_error e)
+            catch (boost::system::system_error &e)
             {
                 switch (e.code().value())
                 {
