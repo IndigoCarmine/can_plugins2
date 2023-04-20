@@ -275,7 +275,7 @@ namespace slcan_bridge
         msg->is_error = cobs_output_buffer_[0] & 0x1;
         msg->is_extended = cobs_output_buffer_[0] >> 1 & 0x1;
         msg->is_rtr = cobs_output_buffer_[0] >> 2 & 0x1;
-        msg->id = cobs_output_buffer_[1] << 12 | cobs_output_buffer_[2] << 8 | cobs_output_buffer_[3] << 4 | cobs_output_buffer_[4];
+        msg->id = cobs_output_buffer_[1] << 24 | cobs_output_buffer_[2] << 16 | cobs_output_buffer_[3] << 8 | cobs_output_buffer_[4];
         msg->dlc = cobs_output_buffer_[5];
         for (int i = 0; i < 8; i++)
         {
