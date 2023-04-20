@@ -279,7 +279,7 @@ namespace slcan_bridge
         msg->dlc = cobs_output_buffer_[5];
         for (int i = 0; i < 8; i++)
         {
-            msg->data[i] = cobs_output_buffer_[4 + i];
+            msg->data[i] = cobs_output_buffer_[6 + i];
         }
         can_rx_pub_->publish(std::move(msg));
         return;
