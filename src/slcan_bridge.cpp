@@ -194,7 +194,7 @@ namespace slcan_bridge
         */
         std::vector<uint8_t> data(6 + 8);
         data[0] = (msg->is_rtr << 2) | (msg->is_extended << 1) | (msg->is_error);
-        data[6] = msg->dlc;
+        data[5] = msg->dlc;
         data[1] = (msg->id >> 24) & 0xff;
         data[2] = (msg->id >> 16) & 0xff;
         data[3] = (msg->id >> 8) & 0xff;
