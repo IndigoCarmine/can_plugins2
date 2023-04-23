@@ -1,13 +1,15 @@
+#include <chrono>
+#include <future>
+#include <vector>
+
+#include "slcan_bridge.hpp"
+
 #include <rclcpp/rclcpp.hpp>
 #include <boost/asio.hpp>
 #include <boost/array.hpp>
 #include <boost/bind/bind.hpp>
-#include <chrono>
-#include <future>
-#include <vector>
 #include "cobs.hpp"
 #include "test.hpp"
-
 #include "can_plugins2/msg/frame.hpp"
 using namespace std::chrono_literals;
 using namespace std::placeholders;
@@ -29,11 +31,16 @@ namespace slcan_bridge
     {
     private:
         /////////////Slacan Status///////////////////
+        // ctrl+c or ros2 shutdown is called.
+        bool is_shutdown_ = false;
         // serial port connected but "HelloSlcan" has not been returned yet.
         bool is_connected_ = false;
         // sconection with usbcan is active. the serial port is new usbcan.
         bool is_active_ = false;
         /////////////Slacan Status///////////////////
+
+        std::string port_name_ = "/dev/usbcan2";
+
 
         std::shared_ptr<boost::asio::io_context> io_context_;
         std::shared_ptr<boost::asio::serial_port> serial_port_;
@@ -54,7 +61,7 @@ namespace slcan_bridge
 
         const int initialize_timeout_ = 1000; // ms
         // port open and setting.
-        bool initializeSerialPort(const std::string port_name);
+        void initializeSerialPort(const std::string port_name);
 
         const int handshake_timeout_ = 1000; // ms
         // check the serial deveice is usbcan.
@@ -88,10 +95,9 @@ namespace slcan_bridge
         // shutfdown process
         void onShutdown()
         {
-            // it generates copilot. so, it may have some problems. TODO:::CHECK
+            is_shutdown_ = true;
             is_active_ = false;
             io_context_->stop();
-            io_context_thread_.join();
             serial_port_->close();
             RCLCPP_INFO(this->get_logger(), "END");
         }
@@ -104,26 +110,26 @@ namespace slcan_bridge
         can_rx_pub_ = this->create_publisher<can_plugins2::msg::Frame>("can_rx", 10);
         can_tx_sub_ = this->create_subscription<can_plugins2::msg::Frame>("can_tx", 10, std::bind(&SlcanBridge::canRxCallback, this, _1));
 
-        std::string port_name = "/dev/usbcan2";
-
         // initalize asio members
         io_context_ = std::make_shared<boost::asio::io_context>();
         serial_port_ = std::make_shared<boost::asio::serial_port>(io_context_->get_executor());
         work_guard_ = std::make_unique<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>>(io_context_->get_executor());
-
         // start io_context thread
         io_context_thread_ = std::thread([this]()
-                                         { io_context_->run(); });
+                                         { 
+                                            io_context_->run(); 
+                                            RCLCPP_INFO(this->get_logger(), "io_context_->run() is finished.");
+
+                                         });
 
         RCLCPP_INFO(get_logger(), "SlcanBridge is initialized.");
 
-        bool i = initializeSerialPort(port_name);
-        if (i)
-        {
-            asyncRead();
-            handshake();
-        }
+        initializeSerialPort(port_name_);
+        asyncRead();
+        handshake();
     }
+
+
 
     void SlcanBridge::canRxCallback(const can_plugins2::msg::Frame::SharedPtr msg)
     {
@@ -135,10 +141,10 @@ namespace slcan_bridge
     }
 
     // port open and setting.
-    bool SlcanBridge::initializeSerialPort(const std::string port_name)
+    void SlcanBridge::initializeSerialPort(const std::string port_name)
     {
-        rclcpp::WallRate rate(1s);
-        while (true)
+        rclcpp::WallRate rate(10ms);
+        while (!is_shutdown_)
         {
             try
             {
@@ -160,7 +166,8 @@ namespace slcan_bridge
                     RCLCPP_ERROR(get_logger(), "Cannot connect. Permission denied");
                     break;
                 default:
-                    RCLCPP_ERROR(get_logger(), "Cannot connect. Unknown error");
+                    RCLCPP_ERROR(get_logger(), "Cannot connect. %s", e.what());
+                    serial_port_->close();
                     break;
                 }
             }
@@ -172,7 +179,7 @@ namespace slcan_bridge
             }
             rate.sleep();
         }
-        return true;
+        return;
     }
 
     void SlcanBridge::asyncWrite(const std::vector<uint8_t> data)
@@ -287,8 +294,8 @@ namespace slcan_bridge
 
     bool SlcanBridge::handshake()
     {
-        rclcpp::WallRate rate(1s);
-        while (!is_active_)
+        rclcpp::WallRate rate(10ms);
+        while (!is_active_&&!is_shutdown_)
         {
             const std::vector<uint8_t> HelloUSBCAN = {'H', 'e', 'l', 'l', 'o', 'U', 'S', 'B', 'C', 'A', 'N'};
             asyncWrite(slcan_command::Negotiation, HelloUSBCAN);
@@ -301,8 +308,8 @@ namespace slcan_bridge
     void SlcanBridge::readOnceHandler(const boost::system::error_code &error, std::size_t bytes_transferred)
     {
         if (error)
-        {
-            RCLCPP_ERROR(get_logger(), "readOnceHandler error");
+        { 
+            RCLCPP_ERROR(get_logger(), "readOnceHandler error %s", error.message().c_str());
             return;
         }
 
@@ -324,8 +331,36 @@ namespace slcan_bridge
 
     void SlcanBridge::readHandler(const boost::system::error_code &error, std::size_t bytes_transferred)
     {
+        //end of file; it means usb disconnect.
+        if(error == boost::asio::error::eof)
+        {
+            is_active_ = false;
+            is_connected_ = false;
+            //reconnect
+            serial_port_->close();
+            io_context_->reset();
+            serial_port_.reset();
+            work_guard_.reset();
+            io_context_thread_.detach();
+            // initalize asio members
+            serial_port_ = std::make_shared<boost::asio::serial_port>(io_context_->get_executor());
+            work_guard_ = std::make_unique<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>>(io_context_->get_executor());
+            // start io_context thread
+            io_context_thread_ = std::thread([this]()
+                { 
+                    io_context_->run(); 
+                    RCLCPP_INFO(this->get_logger(), "io_context_->run() is finished.");
+
+                });
+
+            initializeSerialPort(port_name_);
+            asyncRead();
+            handshake();
+            return;
+        }
         readOnceHandler(error, bytes_transferred);
         asyncRead();
+
         return;
     }
 
