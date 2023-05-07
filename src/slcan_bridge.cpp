@@ -8,7 +8,7 @@ namespace slcan_bridge
         rclcpp::on_shutdown([this]()
                             { this->onShutdown(); });
         can_rx_pub_ = this->create_publisher<can_plugins2::msg::Frame>("can_rx", 10);
-        can_tx_sub_ = this->create_subscription<can_plugins2::msg::Frame>("can_tx", 10, std::bind(&SlcanBridge::canRxCallback, this, _1));
+        can_tx_sub_ = this->create_subscription<can_plugins2::msg::Frame>("can_tx", 10, std::bind(&SlcanBridge::canTxCallback, this, _1));
 
         // initalize asio members
         io_context_ = std::make_shared<boost::asio::io_context>();
@@ -16,11 +16,9 @@ namespace slcan_bridge
         work_guard_ = std::make_unique<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>>(io_context_->get_executor());
         // start io_context thread
         io_context_thread_ = std::thread([this]()
-                                         { 
-                                            io_context_->run(); 
-                                            RCLCPP_INFO(this->get_logger(), "io_context_->run() is finished.");
-
-                                         });
+                                         {
+                                             io_context_->run();
+                                             RCLCPP_INFO(this->get_logger(), "io_context_->run() is finished."); });
 
         RCLCPP_INFO(get_logger(), "SlcanBridge is initialized.");
 
@@ -29,14 +27,11 @@ namespace slcan_bridge
         handshake();
     }
 
-
-
-    void SlcanBridge::canRxCallback(const can_plugins2::msg::Frame::SharedPtr msg)
+    void SlcanBridge::canTxCallback(const can_plugins2::msg::Frame::SharedPtr msg)
     {
         if (!is_active_)
-        {
             return;
-        }
+
         asyncWrite(msg);
     }
 
@@ -124,7 +119,7 @@ namespace slcan_bridge
         // data structure
         /*
         uint8_t command & frame_type: (command: if it is normal can frame, it is 0x00.)<<4 | is_rtr << 2 | is_extended << 1 | is_error
-        uint8_t id[4] : data
+        uint8_t id[] : data
         */
         std::vector<uint8_t> raw_data(1 + data.size());
         raw_data[0] = (command << 4);
@@ -144,7 +139,7 @@ namespace slcan_bridge
         RCLCPP_INFO(get_logger(), "readingProcess %s", test::hex_to_string(cobs_output_buffer_).c_str());
 
         // check it is handshake. USBCAN will send "HelloSlcan" when the connection is established.
-        static const uint8_t HelloSlcan[] = {slcan_command::Negotiation << 4, 'H', 'e', 'l', 'l', 'o', 'S', 'L', 'C', 'A', 'N'};
+        constexpr uint8_t HelloSlcan[] = {slcan_command::Negotiation << 4, 'H', 'e', 'l', 'l', 'o', 'S', 'L', 'C', 'A', 'N'};
         if (cobs_output_buffer_.size() == 10 + 1)
         {
             bool is_handshake = true;
@@ -195,11 +190,11 @@ namespace slcan_bridge
     bool SlcanBridge::handshake()
     {
         rclcpp::WallRate rate(10ms);
-        while (!is_active_&&!is_shutdown_)
+        while (!is_active_ && !is_shutdown_)
         {
-            const std::vector<uint8_t> HelloUSBCAN = {'H', 'e', 'l', 'l', 'o', 'U', 'S', 'B', 'C', 'A', 'N'};
+            constexpr std::vector<uint8_t> HelloUSBCAN = {'H', 'e', 'l', 'l', 'o', 'U', 'S', 'B', 'C', 'A', 'N'};
             asyncWrite(slcan_command::Negotiation, HelloUSBCAN);
-            RCLCPP_INFO(get_logger(), "Waitting for negotiation...");
+            RCLCPP_INFO(get_logger(), "Waiting for negotiation...");
             rate.sleep();
         }
         return true;
@@ -208,7 +203,7 @@ namespace slcan_bridge
     void SlcanBridge::readOnceHandler(const boost::system::error_code &error, std::size_t bytes_transferred)
     {
         if (error)
-        { 
+        {
             RCLCPP_ERROR(get_logger(), "readOnceHandler error %s", error.message().c_str());
             return;
         }
@@ -216,7 +211,7 @@ namespace slcan_bridge
         std::vector<uint8_t> data(bytes_transferred);
 
         // it can use iostream but
-        uint8_t *data_ptr = (uint8_t *)boost::asio::buffer_cast<const char *>(read_streambuf_.data());
+        const uint8_t *data_ptr = (const uint8_t *)boost::asio::buffer_cast<const char *>(read_streambuf_.data());
         for (std::size_t i = 0; i < bytes_transferred; i++)
         {
             data[i] = data_ptr[i];
@@ -231,12 +226,12 @@ namespace slcan_bridge
 
     void SlcanBridge::readHandler(const boost::system::error_code &error, std::size_t bytes_transferred)
     {
-        //end of file; it means usb disconnect.
-        if(error == boost::asio::error::eof)
+        // end of file; it means usb disconnect.
+        if (error == boost::asio::error::eof)
         {
             is_active_ = false;
             is_connected_ = false;
-            //reconnect
+            // reconnect
             serial_port_->close();
             io_context_->reset();
             serial_port_.reset();
@@ -247,11 +242,9 @@ namespace slcan_bridge
             work_guard_ = std::make_unique<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>>(io_context_->get_executor());
             // start io_context thread
             io_context_thread_ = std::thread([this]()
-                { 
-                    io_context_->run(); 
-                    RCLCPP_INFO(this->get_logger(), "io_context_->run() is finished.");
-
-                });
+                                             {
+                                                 io_context_->run();
+                                                 RCLCPP_INFO(this->get_logger(), "io_context_->run() is finished."); });
 
             initializeSerialPort(port_name_);
             asyncRead();
