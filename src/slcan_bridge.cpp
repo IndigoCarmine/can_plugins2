@@ -192,7 +192,7 @@ namespace slcan_bridge
         rclcpp::WallRate rate(10ms);
         while (!is_active_ && !is_shutdown_)
         {
-            constexpr std::vector<uint8_t> HelloUSBCAN = {'H', 'e', 'l', 'l', 'o', 'U', 'S', 'B', 'C', 'A', 'N'};
+            const std::vector<uint8_t> HelloUSBCAN = {'H', 'e', 'l', 'l', 'o', 'U', 'S', 'B', 'C', 'A', 'N'};
             asyncWrite(slcan_command::Negotiation, HelloUSBCAN);
             RCLCPP_INFO(get_logger(), "Waiting for negotiation...");
             rate.sleep();
