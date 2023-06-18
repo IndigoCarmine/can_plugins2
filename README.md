@@ -6,7 +6,7 @@ It works on ros2 Humble Hawksbill and Foxy Fitzroy. (Using Foxy is not recommend
 can_plugins2 is for new version of usbcan_fw. It is not compatible with old version.
 So, you should change new udev rule. See Install section.
 
-
+This supports only environment as 1 byte of 8 bits. (uint8_t == unsigned char)
 
 
 ## Usage

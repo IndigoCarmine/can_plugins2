@@ -43,7 +43,6 @@ namespace slcan_bridge
 
         std::string port_name_ = "/dev/usbcan2";
 
-
         std::shared_ptr<boost::asio::io_context> io_context_;
         std::shared_ptr<boost::asio::serial_port> serial_port_;
         // it will prohabit the io_context to stop.
@@ -59,7 +58,7 @@ namespace slcan_bridge
         rclcpp::Publisher<can_plugins2::msg::Frame>::SharedPtr can_rx_pub_;
         rclcpp::Subscription<can_plugins2::msg::Frame>::SharedPtr can_tx_sub_;
 
-        void canRxCallback(const can_plugins2::msg::Frame::SharedPtr msg);
+        void canTxCallback(const can_plugins2::msg::Frame::SharedPtr msg);
 
         const int initialize_timeout_ = 1000; // ms
         // port open and setting.
@@ -92,7 +91,6 @@ namespace slcan_bridge
 
     public:
         SlcanBridge(const rclcpp::NodeOptions &options);
-        boost::array<unsigned char, 32> receive_api_frame_;
 
         // shutfdown process
         void onShutdown()
