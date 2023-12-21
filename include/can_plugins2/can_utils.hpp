@@ -55,7 +55,7 @@ namespace can_utils
     frame.data.fill(0);
 
     can_pack<T>(frame.data, data);
-    if(Endian == big){
+    if(endian == Endian::big){
       std::reverse(frame.data.begin(), frame.data.end());
     }
 
