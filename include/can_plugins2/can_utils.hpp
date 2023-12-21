@@ -19,18 +19,18 @@ namespace can_utils
   }
 
   template <typename T>
-  inline std::unique_ptr<can_plugins2::msg::Frame> generate_frame(const uint16_t id, const T data)
+  inline can_plugins2::msg::Frame generate_frame(const uint16_t id, const T data)
   {
-    std::unique_ptr<can_plugins2::msg::Frame> frame;
-    frame->id = id;
-    frame->is_rtr = false;
-    frame->is_extended = false;
-    frame->is_error = false;
+    can_plugins2::msg::Frame frame;
+    frame.id = id;
+    frame.is_rtr = false;
+    frame.is_extended = false;
+    frame.is_error = false;
 
-    frame->dlc = sizeof(T);
-    frame->data.fill(0);
+    frame.dlc = sizeof(T);
+    frame.data.fill(0);
 
-    can_pack<T>(frame->data, data);
+    can_pack<T>(frame.data, data);
 
     return frame;
   }
