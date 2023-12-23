@@ -1,4 +1,4 @@
-#include "slcan_bridge.hpp"
+#include <can_plugins2/slcan_bridge.hpp>
 
 namespace slcan_bridge
 {
