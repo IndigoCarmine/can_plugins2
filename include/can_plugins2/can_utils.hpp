@@ -1,3 +1,5 @@
+#pragma once
+
 #include <array>
 #include <can_plugins2/msg/frame.hpp>
 
