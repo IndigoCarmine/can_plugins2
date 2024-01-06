@@ -4,6 +4,10 @@
     </node>
     <load_composable_node target="slcan_bridge">
         <composable_node pkg="can_plugins2" plugin="slcan_bridge::SlcanBridge" name="slcan_bridge">
+            <!-- They are default values, and don't need. It is just sample.-->
+            <param name = "port_name" value = "/dev/usbcan2"/>
+            <param name = "rx_topic_name" value = "can_rx"/>
+            <param name = "tx_topic_name" value = "can_tx"/>
         </composable_node>
     </load_composable_node>
 </launch>

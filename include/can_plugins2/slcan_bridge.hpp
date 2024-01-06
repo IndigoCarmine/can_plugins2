@@ -41,7 +41,12 @@ namespace slcan_bridge
         bool is_active_ = false;
         /////////////Slacan Status///////////////////
 
+        /////////////Slcan Params///////////////////
+        //it can set from launch file (ros2 param).
+        std::string rx_topic_name_ = "can_rx";
+        std::string tx_topic_name_ = "can_tx";
         std::string port_name_ = "/dev/usbcan2";
+        /////////////Slcan Params///////////////////
 
         std::shared_ptr<boost::asio::io_context> io_context_;
         std::shared_ptr<boost::asio::serial_port> serial_port_;

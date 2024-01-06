@@ -7,8 +7,16 @@ namespace slcan_bridge
     {
         rclcpp::on_shutdown([this]()
                             { this->onShutdown(); });
-        can_rx_pub_ = this->create_publisher<can_plugins2::msg::Frame>("can_rx", 10);
-        can_tx_sub_ = this->create_subscription<can_plugins2::msg::Frame>("can_tx", 10, std::bind(&SlcanBridge::canTxCallback, this, _1));
+
+        // get parameters
+        this->get_parameter_or("rx_topic_name", rx_topic_name_, rx_topic_name_);
+        this->get_parameter_or("tx_topic_name", tx_topic_name_, tx_topic_name_);
+        this->get_parameter_or("port_name", port_name_, port_name_);
+
+
+        // initialize publisher and subscriber
+        can_rx_pub_ = this->create_publisher<can_plugins2::msg::Frame>(SlcanBridge::rx_topic_name_, 10);
+        can_tx_sub_ = this->create_subscription<can_plugins2::msg::Frame>(SlcanBridge::tx_topic_name_, 10, std::bind(&SlcanBridge::canTxCallback, this, _1));
 
         // initalize asio members
         io_context_ = std::make_shared<boost::asio::io_context>();
